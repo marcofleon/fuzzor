@@ -17,6 +17,11 @@ if [[ "$FUZZING_ENGINE" = *"_msan"* ]]; then
   EXTRA_BUILD_OPTIONS="-DAPPEND_CPPFLAGS='-U_FORTIFY_SOURCE'"
 fi
 
+# https://github.com/bitcoin/bitcoin/issues/31913#issuecomment-2674701021
+if [[ "$FUZZING_ENGINE" = *"aflpp_asan"* ]] && [[ "$(uname -m)" == "x86_64" ]]; then
+  EXTRA_BUILD_OPTIONS="$EXTRA_BUILD_OPTIONS -DENABLE_HARDENING=OFF"
+fi
+
 cmake -B build_fuzz \
   --toolchain depends/$(./depends/config.guess)/toolchain.cmake \
   `# Setting these flags to an empty string ensures that the flags set by an OSS-Fuzz environment remain unaltered` \
