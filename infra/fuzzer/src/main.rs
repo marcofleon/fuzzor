@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use fuzzor_infra::{get_harness_binary, FuzzEngine, ProjectConfig, Sanitizer};
+use fuzzor_infra::{get_harness_binary, FuzzEngine, HarnessConfig, ProjectConfig, Sanitizer};
 use tokio::fs;
 
 #[derive(Parser, Debug)]
@@ -26,6 +26,7 @@ struct Options {
 
 struct FuzzerConfiguration {
     config: ProjectConfig,
+    harness_config: HarnessConfig,
     total_cores: usize,
     supported_fuzzers: Vec<(FuzzEngine, Sanitizer)>,
     cores_assigned: usize,
@@ -33,9 +34,10 @@ struct FuzzerConfiguration {
 }
 
 impl FuzzerConfiguration {
-    fn new(config: ProjectConfig) -> Self {
+    fn new(config: ProjectConfig, harness_config: HarnessConfig) -> Self {
         Self {
             config,
+            harness_config,
             total_cores: num_cpus::get(),
             supported_fuzzers: Vec::new(),
             cores_assigned: 0,
@@ -147,6 +149,10 @@ impl FuzzerConfiguration {
         // Add all extra arguments
         command.args(&self.extra_args);
 
+        if let Some(dictionary) = &self.harness_config.dictionary {
+            command.arg("--dictionary").arg(dictionary);
+        }
+
         // Configure duration and workspace
         let seconds_to_fuzz = (opts.duration / self.total_cores as f64) * 60.0 * 60.0;
         command
@@ -199,8 +205,12 @@ async fn main() -> Result<(), std::io::Error> {
     let opts = Options::parse();
     let config: ProjectConfig =
         serde_yaml::from_str(&fs::read_to_string(&opts.config).await?).unwrap();
+    let harness_config = serde_yaml::from_str(
+        &fs::read_to_string(&PathBuf::from(format!("/{}.options.yaml", opts.harness))).await?,
+    )
+    .unwrap_or(HarnessConfig::default());
 
-    let mut fuzzer_config = FuzzerConfiguration::new(config);
+    let mut fuzzer_config = FuzzerConfiguration::new(config, harness_config);
 
     // Configure fuzzers
     fuzzer_config.configure_native_go();

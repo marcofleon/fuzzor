@@ -83,6 +83,11 @@ pub struct ProjectConfig {
     pub fuzz_env_var: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+pub struct HarnessConfig {
+    pub dictionary: Option<PathBuf>,
+}
+
 impl ProjectConfig {
     pub fn has_sanitizer(&self, sanitizer: &Sanitizer) -> bool {
         if let Some(sanitizers) = self.sanitizers.as_ref() {
