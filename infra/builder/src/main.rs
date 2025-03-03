@@ -96,7 +96,7 @@ async fn build_cpp(
             cxx: AFL_CLANG_CXX,
             envs: &[],
         },
-        (FuzzEngine::AflPlusPlus, Sanitizer::None) => BuildEnv {
+        (FuzzEngine::AflPlusPlus | FuzzEngine::AflPlusPlusNyx, Sanitizer::None) => BuildEnv {
             cc: AFL_CLANG_CC,
             cxx: AFL_CLANG_CXX,
             envs: &[],
@@ -120,7 +120,7 @@ async fn build_cpp(
                 ("CXXFLAGS", SANITIZE_UNDEFINED),
             ],
         },
-        (FuzzEngine::AflPlusPlus, Sanitizer::Address) => BuildEnv {
+        (FuzzEngine::AflPlusPlus | FuzzEngine::AflPlusPlusNyx, Sanitizer::Address) => BuildEnv {
             cc: AFL_CLANG_CC,
             cxx: AFL_CLANG_CXX,
             envs: &[

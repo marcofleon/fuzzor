@@ -132,6 +132,10 @@ impl FuzzerConfiguration {
         }
 
         self.extra_args.push("--aflpp-occupy".to_string());
+
+        if self.config.has_engine(&FuzzEngine::AflPlusPlusNyx) {
+            self.extra_args.push("--aflpp-nyx".to_string());
+        }
     }
 
     fn build_command(&self, opts: &Options) -> tokio::process::Command {
@@ -185,7 +189,7 @@ fn add_fuzzer(
     let engine_str = match engine {
         FuzzEngine::None => panic!("Can't add FuzzEngine::None to ensemble-fuzz flags"),
         FuzzEngine::LibFuzzer => "libfuzzer",
-        FuzzEngine::AflPlusPlus => "aflpp",
+        FuzzEngine::AflPlusPlus | FuzzEngine::AflPlusPlusNyx => "aflpp",
         FuzzEngine::HonggFuzz => "honggfuzz",
         FuzzEngine::SemSan => "semsan",
         FuzzEngine::NativeGo => "native-go",

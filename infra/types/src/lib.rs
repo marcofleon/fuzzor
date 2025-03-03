@@ -16,6 +16,7 @@ pub enum Language {
 pub enum FuzzEngine {
     LibFuzzer,
     AflPlusPlus,
+    AflPlusPlusNyx,
     HonggFuzz,
     SemSan,
     NativeGo,
@@ -176,14 +177,19 @@ pub fn get_harness_dir(
         (FuzzEngine::LibFuzzer, Sanitizer::ValueProfile) => None,
         (FuzzEngine::LibFuzzer, Sanitizer::SemSan(_)) => None,
 
-        (FuzzEngine::AflPlusPlus, Sanitizer::None) => Some(String::from("aflpp")),
+        (FuzzEngine::AflPlusPlus | FuzzEngine::AflPlusPlusNyx, Sanitizer::None) => {
+            Some(String::from("aflpp"))
+        }
         (FuzzEngine::AflPlusPlus, Sanitizer::Undefined) => Some(String::from("aflpp_ubsan")),
-        (FuzzEngine::AflPlusPlus, Sanitizer::Address) => Some(String::from("aflpp_asan")),
+        (FuzzEngine::AflPlusPlus | FuzzEngine::AflPlusPlusNyx, Sanitizer::Address) => {
+            Some(String::from("aflpp_asan"))
+        }
         (FuzzEngine::AflPlusPlus, Sanitizer::Memory) => Some(String::from("aflpp_msan")),
         (FuzzEngine::AflPlusPlus, Sanitizer::Coverage) => None,
         (FuzzEngine::AflPlusPlus, Sanitizer::CmpLog) => Some(String::from("aflpp_cmplog")),
         (FuzzEngine::AflPlusPlus, Sanitizer::ValueProfile) => None,
         (FuzzEngine::AflPlusPlus, Sanitizer::SemSan(t)) => Some(format!("semsan_{:?}", t)),
+        (FuzzEngine::AflPlusPlusNyx, _) => None,
 
         (FuzzEngine::HonggFuzz, Sanitizer::None) => Some(String::from("honggfuzz")),
         (FuzzEngine::HonggFuzz, Sanitizer::Undefined) => Some(String::from("honggfuzz_ubsan")),
