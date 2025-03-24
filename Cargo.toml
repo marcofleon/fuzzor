@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "fuzzor",
+    "fuzzor-cmds",
+    "fuzzor-docker",
+    "fuzzor-github",
+    "infra/builder",
+    "infra/coverage-reporter",
+    "infra/ensemble-fuzz",
+    "infra/fuzzer",
+    "infra/minimizer",
+    "infra/reproducer",
+    "infra/types",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+authors = ["Niklas Gögge"]
+repository = "https://github.com/dergoegge/fuzzor"
+license = "MIT OR Apache-2.0"

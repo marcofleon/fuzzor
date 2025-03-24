@@ -1,7 +1,10 @@
 [package]
 name = "fuzzor-cmds"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 
@@ -23,3 +26,11 @@ env_logger = "0.11.3"
 
 homedir = "0.2.1"
 num_cpus = "1.16.0"
+
+[[bin]]
+name = "fuzz-project"
+path = "src/bin/fuzz-project.rs"
+
+[[bin]]
+name = "validate-config"
+path = "src/bin/validate-config.rs"
