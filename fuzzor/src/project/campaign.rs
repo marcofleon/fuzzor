@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::{env::*, project::harness::*, solutions::*};
 
-use fuzzor_infra::{FuzzerStats, ProjectConfig};
+use fuzzor_infra::{FuzzerStats, ProjectConfig, Sanitizer};
 use tokio::sync::{
     mpsc::{Receiver, Sender},
     Mutex,
@@ -347,27 +347,29 @@ where
                 }
             };
 
-            match self.env.get_covered_files().await {
-                Ok(covered_files) => {
-                    let mut harness = self.harness.lock().await;
+            if self.project_config.has_sanitizer(&Sanitizer::Coverage) {
+                match self.env.get_covered_files().await {
+                    Ok(covered_files) => {
+                        let mut harness = self.harness.lock().await;
 
-                    log::trace!(
-                        "Covered files for harness '{}': {:?}",
-                        harness.name(),
-                        covered_files
-                    );
+                        log::trace!(
+                            "Covered files for harness '{}': {:?}",
+                            harness.name(),
+                            covered_files
+                        );
 
-                    harness.state_mut().set_covered_files(covered_files).await;
+                        harness.state_mut().set_covered_files(covered_files).await;
+                    }
+                    Err(err) => log::warn!("Could not fetch covered files from env: {:?}", err),
                 }
-                Err(err) => log::warn!("Could not fetch covered files from env: {:?}", err),
-            }
 
-            match self.env.get_coverage_report().await {
-                Ok(report) => {
-                    let mut harness = self.harness.lock().await;
-                    harness.state_mut().store_coverage_report(report).await;
+                match self.env.get_coverage_report().await {
+                    Ok(report) => {
+                        let mut harness = self.harness.lock().await;
+                        harness.state_mut().store_coverage_report(report).await;
+                    }
+                    Err(err) => log::warn!("Could not fetch coverage report from env: {:?}", err),
                 }
-                Err(err) => log::warn!("Could not fetch coverage report from env: {:?}", err),
             }
 
             corpus
