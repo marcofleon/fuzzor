@@ -3,5 +3,5 @@
 pub mod corpora;
 pub mod env;
 pub mod project;
-pub mod solutions;
 pub mod revisions;
+pub mod solutions;
