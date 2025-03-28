@@ -128,7 +128,7 @@ impl Reproducer<FuzzamotoReproducerError> for FuzzamotoReproducer {
             .map_err(|_| FuzzamotoReproducerError::FailedToReadOutputFile)?;
 
         Ok(ReproducedSolution {
-            code: 71,
+            code: 75,
             input: test_case_bytes,
             trace,
         })
