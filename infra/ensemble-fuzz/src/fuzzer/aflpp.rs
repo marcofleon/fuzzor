@@ -129,10 +129,13 @@ impl Fuzzer for AflppFuzzer {
     }
 
     fn get_solutions(&self) -> Vec<PathBuf> {
-        vec![
-            self.out_dir.join(self.id.to_string()).join("crashes"),
-            self.out_dir.join(self.id.to_string()).join("hangs"),
-        ]
+        let ignore_hangs = std::env::var("ENSEMBLE_FUZZ_IGNORE_HANGS").is_ok();
+
+        let mut solution_dirs = vec![self.out_dir.join(self.id.to_string()).join("crashes")];
+        if !ignore_hangs {
+            solution_dirs.push(self.out_dir.join(self.id.to_string()).join("hangs"));
+        }
+        solution_dirs
     }
 
     fn start(&mut self) -> tokio::process::Child {
