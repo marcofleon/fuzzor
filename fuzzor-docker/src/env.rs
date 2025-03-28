@@ -100,6 +100,22 @@ impl DockerEnv {
                 .unwrap();
         }
 
+        let mut resource_limits = Vec::new();
+        if std::env::var("FUZZOR_DOCKER_NO_STACK_LIMIT").is_err() {
+            // Limit the stack size in the env unless FUZZOR_DOCKER_NO_STACK_LIMIT is set.
+            resource_limits.push(bollard::models::ResourcesUlimits {
+                name: Some("stack".to_string()),
+                soft: Some(512 * 1024),
+                hard: Some(512 * 1024),
+            });
+        }
+
+        let mut network_mode = Some("none".to_string());
+        if std::env::var("FUZZOR_DOCKER_ENABLE_NETWORK").is_ok() {
+            // By default, disable network access in the container.
+            network_mode = None;
+        }
+
         let mut config = bollard::container::Config {
             image: Some(params.docker_image.clone()),
             tty: Some(true),
@@ -109,11 +125,8 @@ impl DockerEnv {
                 privileged: Some(true), // for performance
                 cpuset_cpus: Some(cpuset_cpus),
                 tmpfs: Some(tmpfs),
-                ulimits: Some(vec![bollard::models::ResourcesUlimits {
-                    name: Some("stack".to_string()),
-                    soft: Some(512 * 1024),
-                    hard: Some(512 * 1024),
-                }]),
+                ulimits: Some(resource_limits),
+                network_mode,
                 ..Default::default()
             }),
             ..Default::default()
