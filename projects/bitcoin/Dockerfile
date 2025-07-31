@@ -16,6 +16,7 @@ RUN mv ./bitcoin/test/sanitizer_suppressions/ubsan ./ubsan_suppressions
 # suppression is working, however sometimes the stacktrace seems to be missing symbols
 # (see https://github.com/dergoegge/fuzzor/issues/49).
 RUN echo "unsigned-integer-overflow:FuzzedDataProvider.h" >> ./ubsan_suppressions
+RUN echo "unsigned-integer-overflow:InsecureRandomContext::InsecureRandomContext" >> ./ubsan_suppressions
 
 COPY ./config.yaml .
 COPY ./build.sh .
