@@ -3,8 +3,10 @@ FROM fuzzor-base
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
   jq \
   libffi-dev \
+  libsodium-dev \
   libssl-dev \
   libsqlite3-dev \
+  lowdown \
   python3-mako \
   python3-setuptools
 
