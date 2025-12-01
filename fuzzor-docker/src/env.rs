@@ -280,17 +280,21 @@ impl DockerEnv {
                 continue;
             }
 
-            if let Ok(solution) = serde_yaml::from_reader::<_, ReproducedSolution>(entry) {
-                let trace = String::from_utf8(solution.trace).unwrap();
+            match serde_yaml::from_reader::<_, ReproducedSolution>(entry) {
+                Ok(solution) => {
+                    let trace = String::from_utf8(solution.trace).unwrap();
 
-                match solution.cause {
-                    SolutionCause::Timeout => {
-                        solutions.push(Solution::from_timeout(solution.input, trace))
+                    match solution.cause {
+                        SolutionCause::Timeout => {
+                            solutions.push(Solution::from_timeout(solution.input, trace))
+                        }
+                        SolutionCause::Differential => solutions
+                            .push(Solution::from_differential_solution(solution.input, trace)),
+                        _ => solutions.push(Solution::from_crash(solution.input, trace)),
                     }
-                    SolutionCause::Differential => {
-                        solutions.push(Solution::from_differential_solution(solution.input, trace))
-                    }
-                    _ => solutions.push(Solution::from_crash(solution.input, trace)),
+                }
+                Err(e) => {
+                    log::error!("Could not deserialize reproduced solution: {}", e);
                 }
             }
         }
