@@ -24,6 +24,8 @@ fi
 echo "leak:ccan/" >> lsan_suppr.txt
 export LSAN_OPTIONS=suppressions=lsan_suppr.txt
 
+sed -i "s/-Werror//g" configure
+
 ./configure $EXTRA_CONF_OPTS --enable-fuzzing --disable-rust --disable-valgrind CC=$CC CONFIGURATOR_CC=$CC
 
 make -j$(nproc) all-fuzz-programs
