@@ -84,6 +84,8 @@ struct Options {
     repo: Option<String>,
     #[arg(long = "branch", help = "Overwrite the branch from the config")]
     branch: Option<String>,
+    #[arg(long = "pr", help = "PR number to fuzz (fetches from the upstream repo)")]
+    pr: Option<String>,
     #[arg(long = "name", help = "Overwrite the name from the config")]
     name: Option<String>,
 
@@ -204,6 +206,9 @@ async fn main() -> Result<(), String> {
     }
     if let Some(name) = opts.name.clone() {
         folder.config_mut().name = name;
+    }
+    if let Some(pr) = opts.pr.clone() {
+        folder.config_mut().pr_number = Some(pr);
     }
 
     if opts.ci {

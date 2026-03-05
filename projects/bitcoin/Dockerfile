@@ -4,10 +4,19 @@ ARG OWNER=bitcoin
 ARG REPO=bitcoin
 ARG BRANCH=master
 ARG REVISION=
+ARG PR_NUMBER=
 
 ENV SOURCES_PATH=/depends_sources
 
-RUN git clone --depth 1 --branch $BRANCH https://github.com/$OWNER/$REPO.git
+RUN if [ -n "$PR_NUMBER" ]; then \
+      git clone https://github.com/bitcoin/bitcoin.git bitcoin && \
+      cd bitcoin && \
+      git fetch origin pull/$PR_NUMBER/head:pr-branch && \
+      git checkout pr-branch && \
+      cd ..; \
+    else \
+      git clone --depth 1 --branch $BRANCH https://github.com/$OWNER/$REPO.git; \
+    fi
 RUN make -C bitcoin/depends NO_QT=1 NO_ZMQ=1 NO_USDT=1 NO_IPC=1 download-linux SOURCES_PATH=$SOURCES_PATH
 
 RUN mv ./bitcoin/test/sanitizer_suppressions/ubsan ./ubsan_suppressions

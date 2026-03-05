@@ -134,6 +134,9 @@ impl DockerBuilder {
             buildargs.insert(String::from("BRANCH"), branch);
         }
         buildargs.insert(String::from("REVISION"), revision.to_string());
+        if let Some(pr_number) = project_config.pr_number {
+            buildargs.insert(String::from("PR_NUMBER"), pr_number);
+        }
 
         // Create the image tag as "<registry>/<name>:latest" if a registry is configured or
         // "<name>:latest" if not.

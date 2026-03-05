@@ -77,6 +77,8 @@ pub struct ProjectConfig {
     pub owner: String,
     pub repo: String,
     pub branch: Option<String>,
+    #[serde(default)]
+    pub pr_number: Option<String>,
     pub language: Language,
     pub ccs: Vec<String>,
     pub engines: Option<Vec<FuzzEngine>>,
