@@ -1,4 +1,5 @@
 use clap::Parser;
+use cpp_demangle::Symbol;
 use std::{collections::HashMap, io, path::PathBuf};
 use tokio::process::Command;
 
@@ -20,6 +21,13 @@ struct Options {
     pub corpus: String,
     #[arg(help = "Name of the harness to report coverage for", required = true)]
     pub harness: String,
+}
+
+fn demangle_name(mangled: &str) -> String {
+    Symbol::new(mangled.as_bytes())
+        .ok()
+        .and_then(|s| s.demangle().ok())
+        .unwrap_or_else(|| mangled.to_string())
 }
 
 struct CoverageReporter {
@@ -98,18 +106,15 @@ impl CoverageReporter {
     }
 
     async fn export_covered_functions(&self) -> io::Result<()> {
-        let mut cmd = Command::new("llvm-cov");
-        cmd.args([
-            "export",
-            self.binary_path.to_str().unwrap(),
-            &format!("-instr-profile={}", PROFDATA_FILE),
-        ]);
-
-        if let Some(demangler) = &self.demangler {
-            cmd.arg(format!("-Xdemangler={}", demangler));
-        }
-
-        let output = cmd.kill_on_drop(true).output().await?;
+        let output = Command::new("llvm-cov")
+            .args([
+                "export",
+                self.binary_path.to_str().unwrap(),
+                &format!("-instr-profile={}", PROFDATA_FILE),
+            ])
+            .kill_on_drop(true)
+            .output()
+            .await?;
 
         if !output.status.success() {
             return Err(io::Error::new(
@@ -121,9 +126,7 @@ impl CoverageReporter {
         let json: serde_json::Value = serde_json::from_slice(&output.stdout)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        // covered-functions.txt: function names with count > 0 (existing behavior)
         let mut function_names = Vec::new();
-        // function-counts.json: function name -> execution count
         let mut function_counts: HashMap<String, i64> = HashMap::new();
 
         if let Some(functions) = json["data"][0]["functions"].as_array() {
@@ -131,9 +134,10 @@ impl CoverageReporter {
                 let count = func["count"].as_i64().unwrap_or(0);
                 if count > 0 {
                     if let Some(name) = func["name"].as_str() {
-                        function_names.push(name.to_string());
+                        let demangled = demangle_name(name);
+                        function_names.push(demangled.clone());
                         function_counts
-                            .entry(name.to_string())
+                            .entry(demangled)
                             .and_modify(|c| *c += count)
                             .or_insert(count);
                     }
