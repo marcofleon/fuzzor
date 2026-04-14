@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::{io, path::PathBuf};
+use std::{collections::HashMap, io, path::PathBuf};
 use tokio::process::Command;
 
 use fuzzor_infra::{get_harness_binary, FuzzEngine, Language, ProjectConfig, Sanitizer};
@@ -8,6 +8,8 @@ const PROFRAW_FILE: &str = "default.profraw";
 const PROFDATA_FILE: &str = "default.profdata";
 const COVERAGE_SUMMARY_FILE: &str = "coverage-summary.json";
 const COVERED_FUNCTIONS_FILE: &str = "/workdir/covered-functions.txt";
+const FUNCTION_COUNTS_FILE: &str = "/workdir/function-counts.json";
+const LINE_COVERAGE_FILE: &str = "/workdir/line-coverage.json";
 const COVERAGE_REPORT_DIR: &str = "/workdir/coverage_report";
 
 #[derive(Parser, Debug)]
@@ -119,12 +121,21 @@ impl CoverageReporter {
         let json: serde_json::Value = serde_json::from_slice(&output.stdout)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
+        // covered-functions.txt: function names with count > 0 (existing behavior)
         let mut function_names = Vec::new();
+        // function-counts.json: function name -> execution count
+        let mut function_counts: HashMap<String, i64> = HashMap::new();
+
         if let Some(functions) = json["data"][0]["functions"].as_array() {
             for func in functions {
-                if func["count"].as_i64().unwrap_or(0) > 0 {
+                let count = func["count"].as_i64().unwrap_or(0);
+                if count > 0 {
                     if let Some(name) = func["name"].as_str() {
                         function_names.push(name.to_string());
+                        function_counts
+                            .entry(name.to_string())
+                            .and_modify(|c| *c += count)
+                            .or_insert(count);
                     }
                 }
             }
@@ -135,6 +146,54 @@ impl CoverageReporter {
 
         let contents = function_names.join("\n");
         tokio::fs::write(COVERED_FUNCTIONS_FILE, contents).await?;
+
+        let function_counts_json = serde_json::to_vec(&function_counts)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        tokio::fs::write(FUNCTION_COUNTS_FILE, function_counts_json).await?;
+
+        // line-coverage.json: filename -> [[line, count], ...] (segment transition points)
+        let mut line_coverage: HashMap<String, Vec<[i64; 2]>> = HashMap::new();
+
+        if let Some(files) = json["data"][0]["files"].as_array() {
+            for file in files {
+                let filename = match file["filename"].as_str() {
+                    Some(f) => f,
+                    None => continue,
+                };
+                let segments = match file["segments"].as_array() {
+                    Some(s) => s,
+                    None => continue,
+                };
+
+                let mut transitions = Vec::new();
+                for seg in segments {
+                    let seg = match seg.as_array() {
+                        Some(s) => s,
+                        None => continue,
+                    };
+                    // segments: [line, col, count, hasCount, isGap]
+                    if seg.len() < 5 {
+                        continue;
+                    }
+                    let has_count = seg[3].as_bool().unwrap_or(false);
+                    let is_gap = seg[4].as_bool().unwrap_or(false);
+                    if !has_count || is_gap {
+                        continue;
+                    }
+                    let line = seg[0].as_i64().unwrap_or(0);
+                    let count = seg[2].as_i64().unwrap_or(0);
+                    transitions.push([line, count]);
+                }
+
+                if !transitions.is_empty() {
+                    line_coverage.insert(filename.to_string(), transitions);
+                }
+            }
+        }
+
+        let line_coverage_json = serde_json::to_vec(&line_coverage)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        tokio::fs::write(LINE_COVERAGE_FILE, line_coverage_json).await?;
 
         Ok(())
     }

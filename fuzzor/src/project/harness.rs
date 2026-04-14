@@ -32,6 +32,10 @@ pub trait HarnessState {
     async fn store_coverage_report(&self, tar: Vec<u8>);
     /// Store a coverage summary for a campaign
     async fn store_coverage_summary(&self, campaign_id: &str, summary: Vec<u8>);
+    /// Store function execution counts (function-counts.json)
+    async fn store_function_counts(&self, data: Vec<u8>);
+    /// Store per-file line coverage segments (line-coverage.json)
+    async fn store_line_coverage(&self, data: Vec<u8>);
     /// Store startup parameters for a campaign
     async fn store_startup_params(&self, campaign_id: &str, params: CampaignStartupParams);
     /// Record stats for a campaign
@@ -232,6 +236,24 @@ impl HarnessState for PersistentHarnessState {
             Err(err) => {
                 log::error!("Could not serialize startup params: {:?}", err);
             }
+        }
+    }
+
+    async fn store_function_counts(&self, data: Vec<u8>) {
+        let _ = tokio::fs::create_dir_all(&self.path).await;
+
+        let path = self.path.join("function-counts.json");
+        if let Err(err) = tokio::fs::write(&path, &data).await {
+            log::error!("Could not write function counts to {:?}: {:?}", path, err);
+        }
+    }
+
+    async fn store_line_coverage(&self, data: Vec<u8>) {
+        let _ = tokio::fs::create_dir_all(&self.path).await;
+
+        let path = self.path.join("line-coverage.json");
+        if let Err(err) = tokio::fs::write(&path, &data).await {
+            log::error!("Could not write line coverage to {:?}: {:?}", path, err);
         }
     }
 

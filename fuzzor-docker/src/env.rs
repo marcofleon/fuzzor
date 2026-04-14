@@ -455,6 +455,54 @@ impl Environment for DockerEnv {
         Err(String::from("No entries in downloaded tar"))
     }
 
+    async fn get_function_counts(&self) -> Result<Vec<u8>, String> {
+        let tar_bytes = self
+            .download_tar(String::from("/workdir/function-counts.json"))
+            .await?;
+
+        let mut tarball = tar::Archive::new(tar_bytes.as_slice());
+
+        if let Some(entry) = tarball
+            .entries()
+            .map_err(|e| format!("Could not get entries from function counts tarball: {}", e))?
+            .next()
+        {
+            let mut contents = Vec::new();
+            entry
+                .map_err(|e| format!("Entry was not Ok: {}", e))?
+                .read_to_end(&mut contents)
+                .map_err(|e| format!("Could not read function counts: {}", e))?;
+
+            return Ok(contents);
+        }
+
+        Err(String::from("No entries in downloaded tar"))
+    }
+
+    async fn get_line_coverage(&self) -> Result<Vec<u8>, String> {
+        let tar_bytes = self
+            .download_tar(String::from("/workdir/line-coverage.json"))
+            .await?;
+
+        let mut tarball = tar::Archive::new(tar_bytes.as_slice());
+
+        if let Some(entry) = tarball
+            .entries()
+            .map_err(|e| format!("Could not get entries from line coverage tarball: {}", e))?
+            .next()
+        {
+            let mut contents = Vec::new();
+            entry
+                .map_err(|e| format!("Entry was not Ok: {}", e))?
+                .read_to_end(&mut contents)
+                .map_err(|e| format!("Could not read line coverage: {}", e))?;
+
+            return Ok(contents);
+        }
+
+        Err(String::from("No entries in downloaded tar"))
+    }
+
     async fn get_coverage_report(&self) -> Result<Vec<u8>, String> {
         self.download_tar(String::from("/workdir/coverage_report"))
             .await

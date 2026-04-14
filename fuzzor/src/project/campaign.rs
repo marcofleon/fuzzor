@@ -414,6 +414,26 @@ where
                     }
                 }
 
+                match self.env.get_function_counts().await {
+                    Ok(data) => {
+                        let harness = self.harness.lock().await;
+                        harness.state().store_function_counts(data).await;
+                    }
+                    Err(err) => {
+                        log::warn!("Could not fetch function counts from env: {:?}", err)
+                    }
+                }
+
+                match self.env.get_line_coverage().await {
+                    Ok(data) => {
+                        let harness = self.harness.lock().await;
+                        harness.state().store_line_coverage(data).await;
+                    }
+                    Err(err) => {
+                        log::warn!("Could not fetch line coverage from env: {:?}", err)
+                    }
+                }
+
                 match self.env.get_coverage_report().await {
                     Ok(report) => {
                         let mut harness = self.harness.lock().await;

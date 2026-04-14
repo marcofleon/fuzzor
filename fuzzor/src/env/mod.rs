@@ -28,6 +28,10 @@ pub trait Environment {
     async fn get_covered_files(&self) -> Result<Vec<String>, String>;
     /// Get the names of the functions that were covered through fuzzing
     async fn get_covered_functions(&self) -> Result<Vec<String>, String>;
+    /// Get function names with their execution counts
+    async fn get_function_counts(&self) -> Result<Vec<u8>, String>;
+    /// Get per-file line coverage segments with execution counts
+    async fn get_line_coverage(&self) -> Result<Vec<u8>, String>;
     /// Get the coverage report
     async fn get_coverage_report(&self) -> Result<Vec<u8>, String>;
     /// Get the raw coverage summary (coverage-summary.json)
