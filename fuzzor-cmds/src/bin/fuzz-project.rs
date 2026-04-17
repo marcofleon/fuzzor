@@ -219,6 +219,7 @@ async fn main() -> Result<(), String> {
             Sanitizer::Undefined,
             Sanitizer::Memory,
             Sanitizer::ValueProfile,
+            Sanitizer::Coverage,
             Sanitizer::None,
         ]);
     }
