@@ -1,6 +1,6 @@
 use clap::Parser;
 use cpp_demangle::Symbol;
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{collections::BTreeMap, io, path::PathBuf};
 use tokio::process::Command;
 
 use fuzzor_infra::{get_harness_binary, FuzzEngine, Language, ProjectConfig, Sanitizer};
@@ -126,8 +126,7 @@ impl CoverageReporter {
         let json: serde_json::Value = serde_json::from_slice(&output.stdout)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        let mut function_names = Vec::new();
-        let mut function_counts: HashMap<String, i64> = HashMap::new();
+        let mut function_counts: BTreeMap<String, i64> = BTreeMap::new();
 
         if let Some(functions) = json["data"][0]["functions"].as_array() {
             for func in functions {
@@ -135,7 +134,6 @@ impl CoverageReporter {
                 if count > 0 {
                     if let Some(name) = func["name"].as_str() {
                         let demangled = demangle_name(name);
-                        function_names.push(demangled.clone());
                         function_counts
                             .entry(demangled)
                             .and_modify(|c| *c += count)
@@ -145,18 +143,22 @@ impl CoverageReporter {
             }
         }
 
-        function_names.sort();
-        function_names.dedup();
+        let covered_functions_contents = function_counts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n");
+        tokio::fs::write(COVERED_FUNCTIONS_FILE, covered_functions_contents).await?;
 
-        let contents = function_names.join("\n");
-        tokio::fs::write(COVERED_FUNCTIONS_FILE, contents).await?;
-
-        let function_counts_json = serde_json::to_vec(&function_counts)
+        let function_counts_json = serde_json::to_vec_pretty(&function_counts)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         tokio::fs::write(FUNCTION_COUNTS_FILE, function_counts_json).await?;
 
-        // line-coverage.json: filename -> [[line, count], ...] (segment transition points)
-        let mut line_coverage: HashMap<String, Vec<[i64; 2]>> = HashMap::new();
+        // line-coverage.json: filename -> {line: count} for covered lines only.
+        // Per-line count is the max across column-segments on that line; zero-count
+        // segments (uncovered regions) and gaps are dropped since they are noise for
+        // PR-impact matching.
+        let mut line_coverage: BTreeMap<String, BTreeMap<i64, i64>> = BTreeMap::new();
 
         if let Some(files) = json["data"][0]["files"].as_array() {
             for file in files {
@@ -169,7 +171,7 @@ impl CoverageReporter {
                     None => continue,
                 };
 
-                let mut transitions = Vec::new();
+                let mut lines: BTreeMap<i64, i64> = BTreeMap::new();
                 for seg in segments {
                     let seg = match seg.as_array() {
                         Some(s) => s,
@@ -184,18 +186,24 @@ impl CoverageReporter {
                     if !has_count || is_gap {
                         continue;
                     }
-                    let line = seg[0].as_i64().unwrap_or(0);
                     let count = seg[2].as_i64().unwrap_or(0);
-                    transitions.push([line, count]);
+                    if count <= 0 {
+                        continue;
+                    }
+                    let line = seg[0].as_i64().unwrap_or(0);
+                    lines
+                        .entry(line)
+                        .and_modify(|c| *c = (*c).max(count))
+                        .or_insert(count);
                 }
 
-                if !transitions.is_empty() {
-                    line_coverage.insert(filename.to_string(), transitions);
+                if !lines.is_empty() {
+                    line_coverage.insert(filename.to_string(), lines);
                 }
             }
         }
 
-        let line_coverage_json = serde_json::to_vec(&line_coverage)
+        let line_coverage_json = serde_json::to_vec_pretty(&line_coverage)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         tokio::fs::write(LINE_COVERAGE_FILE, line_coverage_json).await?;
 
