@@ -39,6 +39,14 @@ pub struct GitHubRepository {
     pub repo: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct GitHubPullRequestHead {
+    pub owner: String,
+    pub repo: String,
+    pub branch: String,
+    pub sha: String,
+}
+
 /// GitHubRevisionTracker tracks software revisions hosted in GitHub repositories.
 pub struct GitHubRevisionTracker {
     source: (GitHubRepository, GithubRevisionSource),
@@ -78,6 +86,43 @@ impl GitHubRevisionTracker {
         self.resolve_source().await.2
     }
 
+    pub async fn lookup_pull_request_head(
+        &self,
+        number: u64,
+    ) -> Result<GitHubPullRequestHead, String> {
+        let pr = self
+            .github
+            .pulls(&self.source.0.owner, &self.source.0.repo)
+            .get(number)
+            .await
+            .map_err(|err| {
+                format!(
+                    "Could not fetch pull request (repo={}/{}, pr={}): {}",
+                    self.source.0.owner, self.source.0.repo, number, err
+                )
+            })?;
+
+        let repo = pr.head.repo.as_ref().ok_or_else(|| {
+            format!(
+                "Pull request head repository is unavailable (repo={}/{}, pr={})",
+                self.source.0.owner, self.source.0.repo, number
+            )
+        })?;
+        let owner = repo.owner.as_ref().ok_or_else(|| {
+            format!(
+                "Pull request head repository owner is unavailable (repo={}/{}, pr={})",
+                self.source.0.owner, self.source.0.repo, number
+            )
+        })?;
+
+        Ok(GitHubPullRequestHead {
+            owner: owner.login.clone(),
+            repo: repo.name.clone(),
+            branch: pr.head.ref_field.clone(),
+            sha: pr.head.sha.clone(),
+        })
+    }
+
     async fn resolve_source(&mut self) -> (String, String, String) {
         if self.resolve_source_cache.is_none() {
             // Do the actual lookup (GitHub API call) and populate the cache only on the first
@@ -100,22 +145,13 @@ impl GitHubRevisionTracker {
             // If we are tracking a pull request, we'll need to fetch info about the pull request
             // origin (i.e. owner, repo and branch).
             GithubRevisionSource::PullRequest(number) => {
-                if let Ok(pr) = self
-                    .github
-                    .pulls(&self.source.0.owner, &self.source.0.repo)
-                    .get(*number)
-                    .await
-                {
-                    let repo = pr.head.repo.as_ref().unwrap(); // TODO don't unwrap here
-
-                    (
-                        repo.owner.as_ref().unwrap().login.clone(),
-                        repo.name.clone(),
-                        pr.head.ref_field.clone(),
-                    );
-                };
-
-                (String::new(), String::new(), String::new()) // TODO wtf is this
+                match self.lookup_pull_request_head(*number).await {
+                    Ok(head) => (head.owner, head.repo, head.branch),
+                    Err(err) => {
+                        log::warn!("{}", err);
+                        (String::new(), String::new(), String::new())
+                    }
+                }
             }
         };
     }

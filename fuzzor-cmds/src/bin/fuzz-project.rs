@@ -228,6 +228,18 @@ async fn main() -> Result<(), String> {
     }
 
     let config = folder.config();
+    let pr_number = opts
+        .pr
+        .as_ref()
+        .map(|pr| {
+            pr.parse::<u64>()
+                .map_err(|_| format!("Invalid PR number '{}'", pr))
+        })
+        .transpose()?;
+    let revision_source = pr_number.map_or(
+        GithubRevisionSource::Branch(config.branch.clone().unwrap_or(String::from("master"))),
+        GithubRevisionSource::PullRequest,
+    );
 
     let gh_tracker = GitHubRevisionTracker::new(
         access_token.clone(),
@@ -235,7 +247,7 @@ async fn main() -> Result<(), String> {
             owner: config.owner.clone(),
             repo: config.repo.clone(),
         },
-        GithubRevisionSource::Branch(config.branch.clone().unwrap_or(String::from("master"))),
+        revision_source,
     );
 
     let docker_machine_pool = ResourcePool::new(infra.runners.drain(..));
@@ -278,10 +290,19 @@ async fn main() -> Result<(), String> {
 
     // Use directory specified by the `FUZZOR_STATE_DIR` env variable or use `$HOME/.fuzzor` as
     // default.
-    let state_location = std::env::var("FUZZOR_STATE_DIR")
+    let mut state_location = std::env::var("FUZZOR_STATE_DIR")
         .map(PathBuf::from)
         .unwrap_or(homedir::get_my_home().unwrap().unwrap().join(".fuzzor"))
         .join(folder.config().name);
+    if opts.ci {
+        if let Some(pr_number) = pr_number {
+            let pr_head = gh_tracker.lookup_pull_request_head(pr_number).await?;
+            state_location = state_location
+                .join("prs")
+                .join(pr_number.to_string())
+                .join(pr_head.sha);
+        }
+    }
 
     let corpus_herder = VersionedOverwritingHerder::new(
         state_location.join("corpora"),

@@ -13,7 +13,7 @@ RUN if [ -n "$PR_NUMBER" ]; then \
       git clone https://github.com/bitcoin/bitcoin.git bitcoin && \
       cd bitcoin && \
       git fetch origin pull/$PR_NUMBER/head:pr-branch && \
-      git checkout pr-branch && \
+      if [ -n "$REVISION" ]; then git checkout "$REVISION"; else git checkout pr-branch; fi && \
       cd ..; \
     else \
       git clone --depth 1 --branch $BRANCH https://github.com/$OWNER/$REPO.git; \
