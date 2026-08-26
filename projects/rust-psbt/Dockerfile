@@ -16,7 +16,7 @@ RUN git clone --depth 1 --branch $BRANCH https://git.rust-bitcoin.org/$OWNER/$RE
 # cargo rbmt installs cargo fuzz
 RUN cd $REPO && \
     cargo install --git https://git.rust-bitcoin.org/rust-bitcoin/rust-bitcoin-maintainer-tools \
-                  --rev $(cat rbmt-version) cargo-rbmt && \
+                  --tag cargo-rbmt-0.5.1 cargo-rbmt && \
     cargo rbmt toolchains && \
     cd fuzz && cargo rbmt tools
 
